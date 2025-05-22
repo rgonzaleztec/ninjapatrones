@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Dojo del Diseño de Software</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #e6dbc9; }
+    #scrollNinja {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fffbe6;
+      color: #333;
+      border: 3px solid #b38b00;
+      border-radius: 14px;
+      padding: 20px;
+      width: 90%;
+      max-width: 720px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.6);
+      display: none;
+      z-index: 10;
+      font-size: 15px;
+    }
+    pre {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      overflow-x: auto;
+    }
+    audio { display: none; }
+  </style>
+</head>
+<body>
+  <audio autoplay loop>
+    <source src="https://cdn.pixabay.com/audio/2022/10/30/audio_2e2949d473.mp3" type="audio/mpeg">
+    Tu navegador no soporta audio HTML5.
+  </audio>
+  <div id="scrollNinja">Cargando contenido...</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+  <script>
+    let scene, camera, renderer, dojoItems = [], raycaster, mouse = new THREE.Vector2();
+    const scrollBox = document.getElementById("scrollNinja");
+
+    const dojoData = [
+      {
+        title: "Diseño de Clases",
+        content: "<b>Ejemplo:</b> Clase Pedido con responsabilidad única.<br><b>Pregunta:</b> ¿Qué atributos y métodos tendría una clase bien cohesionada?<br><br><b>Código C#:</b><pre>public class Pedido {
+  public int Id { get; set; }
+  public DateTime Fecha { get; set; }
+  public void CalcularTotal() {...}
+}</pre>",
+        ninja: "ninja_pixel_1.png"
+      },
+      {
+        title: "Relaciones",
+        content: "<b>Ejemplo:</b> Composición: una Orden tiene múltiples Items.<br><b>Pregunta:</b> ¿Cuándo es mejor usar agregación en lugar de herencia?<br><br><b>Código C#:</b><pre>public class Orden {
+  public List<Item> Items { get; set; }
+}</pre>",
+        ninja: "ninja_pixel_2.png"
+      },
+      {
+        title: "Patrones GOF",
+        content: "<b>Ejemplo:</b> Factory para instanciar métodos de pago.<br><b>Pregunta:</b> ¿Qué problema resuelve Observer?<br><br><b>Código C#:</b><pre>public interface IPago { void Procesar(); }
+public class PagoFactory {
+  public static IPago Crear(string tipo) {
+    if (tipo == \"paypal\") return new Paypal();
+    return new Tarjeta();
+  }
+}</pre>",
+        ninja: "ninja_pixel_3.png"
+      },
+      {
+        title: "GRASP & SOLID",
+        content: "<b>Ejemplo:</b> SRP aplicado a clase Reporte.<br><b>Pregunta:</b> ¿Qué principio te ayuda a reducir el acoplamiento?<br><br><b>Código C#:</b><pre>public class Reporte {
+  public string GenerarPDF() { ... }
+}</pre>",
+        ninja: "ninja_pixel_4.png"
+      },
+      {
+        title: "Desafío del Sensei",
+        content: "<b>Reto:</b> Diseñá una solución que aplique al menos 1 principio SOLID, 1 patrón GOF y un principio GRASP en una sola clase o componente.<br><b>¿Podés justificar tus decisiones y defenderlas ante el Sensei?</b>",
+        ninja: "ninja_pixel_5.png"
+      }
+    ];
+
+    function init() {
+      scene = new THREE.Scene();
+
+      const loader = new THREE.TextureLoader();
+      loader.load("https://upload.wikimedia.org/wikipedia/commons/2/2b/Tatami_texture.jpg", function(texture) {
+        const backgroundMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(100, 50),
+          new THREE.MeshBasicMaterial({ map: texture })
+        );
+        backgroundMesh.position.z = -10;
+        scene.add(backgroundMesh);
+      });
+
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 3, 14);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const light = new THREE.AmbientLight(0xffffff, 0.95);
+      scene.add(light);
+
+      const boxGeometry = new THREE.BoxGeometry(3, 1.5, 0.4);
+
+      dojoData.forEach((data, i) => {
+        const color = new THREE.Color(`hsl(${i * 60}, 70%, 50%)`);
+        const material = new THREE.MeshBasicMaterial({ color });
+        const mesh = new THREE.Mesh(boxGeometry, material);
+        mesh.position.set((i - 2) * 4, 1.2, 0);
+        mesh.userData = data;
+        scene.add(mesh);
+        dojoItems.push(mesh);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 256; canvas.height = 64;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, 256, 64);
+        ctx.fillStyle = "#000";
+        ctx.font = "20px Arial";
+        ctx.fillText(data.title, 20, 40);
+        const texture = new THREE.CanvasTexture(canvas);
+        const labelMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+        const label = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.6), labelMaterial);
+        label.position.set(mesh.position.x, mesh.position.y + 1.2, mesh.position.z);
+        scene.add(label);
+
+        const ninjaTexture = loader.load(data.ninja);
+        const ninjaSprite = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.4, 1.4),
+          new THREE.MeshBasicMaterial({ map: ninjaTexture, transparent: true })
+        );
+        ninjaSprite.position.set(mesh.position.x, mesh.position.y + 2.4, mesh.position.z + 0.01);
+        scene.add(ninjaSprite);
+      });
+
+      raycaster = new THREE.Raycaster();
+      window.addEventListener("click", onClick, false);
+      animate();
+    }
+
+    function onClick(event) {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(dojoItems);
+      if (intersects.length > 0) {
+        const data = intersects[0].object.userData;
+        scrollBox.innerHTML = "<h3>" + data.title + "</h3>" + data.content;
+        scrollBox.style.opacity = 0;
+        scrollBox.style.display = "block";
+        new TWEEN.Tween(scrollBox.style).to({ opacity: 1 }, 600).start();
+      } else {
+        new TWEEN.Tween(scrollBox.style).to({ opacity: 0 }, 400)
+          .onComplete(() => scrollBox.style.display = "none").start();
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      TWEEN.update();
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+</body>
+</html>
